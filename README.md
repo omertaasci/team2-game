@@ -140,6 +140,7 @@ Please check each pack's license before publishing the game.
 |---|---|
 | Ömer | [@omertaasci](https://github.com/omertaasci) |
 | Manvi | [@manvibhatt1137-glitch](https://github.com/manvibhatt1137-glitch) |
+| Rayan | [@rayanhasasneh](https://github.com/rayanhasasneh) |
 | _add the remaining members_ | |
 
 <div align="center">
