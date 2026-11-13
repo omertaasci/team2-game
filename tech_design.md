@@ -11,7 +11,7 @@ The game is an **event-driven system**. Players send **commands**. Services deci
 | Game client | Phaser 3 + Vite + TypeScript | Tilemaps, animation and input built in |
 | Gateway | Node.js + WebSocket (Socket.IO) | Connects browsers to the broker |
 | Event broker | Redpanda (Kafka API), shared team server | Durable topics, many independent consumers |
-| Services (consumers) | Node.js + TypeScript + `kafkajs` | One process per consumer |
+| Services (consumers) | Node.js + TypeScript, Redpanda REST proxy over HTTP (`fetch`) | One service per consumer, each in its own consumer group |
 | Shared | TypeScript types | One definition of every command and event |
 
 ## 3. Architecture
@@ -131,39 +131,39 @@ On restart, a consumer replays its topics from the start (or from a snapshot) to
 
 ## 7. Broker settings
 
+- **Topic names:** `game.<key>` in this document is shorthand for the real topic `team2.<key>`.
 - **Partitions:** a few per topic. The key is `roomId`, so events of one room stay in order.
-- **Consumer groups:** one per service (for example `quest-service`).
-- **Retention:** short for `game.commands` and `game.world`, long for `game.progress` and replay data.
+- **Consumer groups:** one per service, named `team2.[ns-]<service>` (for example `team2.quest`). The broker requires the `team2` prefix.
+- **Topics:** the 8 topics (`team2.commands`, `lobby`, `world`, `quests`, `presents`, `combat`, `chat`, `progress`) were created by the teacher, because the REST proxy does not create topics on its own. Only these can be used. `TOPIC_NS` only makes sense if matching topics exist, so leave it empty on the shared broker and use `BROKER=memory` for local development.
+- **Fallback:** `BROKER_TOPICS=single` sends everything over `team2.events` with a `_topic` tag, in case the topics are missing.
+- **Batching:** the REST proxy handles one request at a time, so the broker client queues messages and sends everything waiting in one request.
+- **Consumers:** `auto.offset.reset=earliest` is required. Services skip messages older than their start time. Consumer creation can fail with `50003`, so it is retried.
+- **Retention:** short for commands and world, long for progress and replay data.
 - **Delivery:** at-least-once. Consumers are idempotent (they ignore an envelope `id` they already handled).
-- **Access:** the broker runs on the shared team server. Broker address and credentials come from environment variables and are never committed.
+- **Access:** the broker runs on the shared team server. Address and password come from environment variables (`.env`, git-ignored) and are never committed.
 
 ## 8. Latency
 
-A command goes browser -> gateway -> broker -> service -> broker -> gateway -> browser. With a nearby broker this should stay well under 100 ms, which is fine for a slow co-op RPG.
+A command goes browser -> gateway -> broker -> service -> broker -> gateway -> browser. Measured on the shared broker, a round trip is about 0.5–1.7 s. That is fine for talking, quests and combat, but too slow for movement.
 
-Movement is the busiest stream. To keep it smooth:
-- The client moves its own player immediately and corrects it if `move_rejected` arrives.
-- Other players are interpolated between `player_moved` events.
-- The World consumer batches positions (about 20 per second).
+Movement is therefore a hybrid:
+- The client moves its own player immediately.
+- The gateway relays `move_player` to the other players at once as a volatile `live_move` message (not stored).
+- The gateway publishes a position checkpoint to the broker at most every 500 ms, and on scene changes. The World consumer turns it into `player_moved`.
+- Other players are interpolated on the client.
 
 ## 9. Folder structure
 
 ```
 team2-game/
-├── assets/
-├── client/            Phaser game
-├── gateway/           WebSocket <-> broker
-├── services/
-│   ├── lobby/
-│   ├── world/
-│   ├── quest/
-│   ├── combat/
-│   ├── chat/
-│   ├── leaderboard/
-│   ├── achievements/
-│   └── replay/
-├── shared/            command and event types, envelope, topic names
-├── docker-compose.yml local Redpanda for development
+├── broker/            Broker clients: in-memory and Redpanda REST proxy
+├── client/            Phaser game (index.html, src/, public/assets/)
+├── gateway/           Socket.IO <-> broker
+├── services/          lobby, world, quest, combat, chat, leaderboard, achievements, replay
+├── shared/            command and event types, game data, state reducer
+├── tests/             end-to-end test (memory broker) and live broker smoke test
+├── server.ts          starts gateway and services (all, or split by flags)
+├── .env.example
 ├── concept.md
 ├── game_events.md
 └── tech_design.md
@@ -178,23 +178,28 @@ team2-game/
 ## 11. Running
 
 ```bash
-docker compose up -d redpanda   # local broker (or use the shared team broker)
 npm install
-npm run dev                     # client, gateway and all services
+cp .env.example .env     # set BROKER_PASSWORD only for the shared broker
+npm run dev              # client (Vite) + server on http://localhost:5173
 ```
+
+- `BROKER=memory` (default): everything runs in one process, no broker needed.
+- `BROKER=http`: use the shared Redpanda broker. Set `BROKER_PASSWORD`. All developers share the same 8 topics, so run only one copy at a time.
+- Split deployment: `npx tsx server.ts --gateway` and `npx tsx server.ts --services=quest,combat` (needs `BROKER=http`). This is how each teammate can run only their own consumer.
 
 ## 12. Testing
 
-- Unit tests per consumer: feed it events and check the events it publishes.
-- A script that sends commands from fake clients and checks the resulting events.
+- `npm test`: full game flow (lobby, quests, boss fight, presents) with fake clients on the in-memory broker.
+- `npm run smoke:http`: the same start of a game through the real shared broker.
 - Open several browser tabs to test multiplayer by hand.
 
 ## 13. Risks
 
 | Risk | Mitigation |
 |---|---|
-| Broker latency makes movement feel slow | Client-side prediction, interpolation, batching |
+| Broker latency makes movement feel slow | Hybrid movement: live relay plus checkpoints, interpolation |
+| Shared broker has only 8 fixed topics | Run one copy at a time on the shared broker; develop on the in-memory broker |
 | Duplicate events | Idempotent consumers using the envelope `id` |
-| Services drift apart on message format | One shared `shared/` package with types |
+| Services drift apart on message format | One `shared/` module with types |
 | Missing character art | Recolor existing sprites, use class stats instead of unique animations |
 | Scope creep | Chat and extra abilities are optional and come last |

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Christmas Quest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #0b1426; color: #eaf4ff; overflow: hidden;
+        font-family: 'Trebuchet MS', 'Segoe UI', Verdana, Arial, sans-serif; font-size: 15px; line-height: 1.5; }
+      #game { position: fixed; inset: 0; }
+      #game canvas { image-rendering: pixelated; }
+      .hidden { display: none !important; }
+      .panel { background: rgba(10, 22, 44, .86); border: 3px solid #7fc8ff; box-shadow: 0 0 0 3px #0b1426; padding: 10px 12px; }
+      button { font: inherit; color: #0b1426; background: #ffe066; border: 3px solid #fff3b0; padding: 8px 12px; cursor: pointer; }
+      button:hover:not(:disabled) { background: #fff3b0; }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      input { font: inherit; color: #eaf4ff; background: #0b1426; border: 3px solid #7fc8ff; padding: 8px; width: 100%; }
+      h1 { font-family: 'Press Start 2P', 'Trebuchet MS', sans-serif; font-size: 22px; margin: 0 0 6px; color: #fff; text-shadow: 3px 3px 0 #d63a3a; }
+      h2 { font-size: 17px; margin: 0 0 8px; color: #ffe066; }
+      .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(ellipse at top, #1d3a6b 0%, #0b1426 70%); z-index: 10; }
+      .screen .panel { width: min(560px, 94vw); }
+      .snow { position: fixed; inset: 0; pointer-events: none; z-index: 11; }
+      .row { display: flex; gap: 8px; margin: 8px 0; align-items: center; }
+      .muted { color: #a9c4e4; font-size: 13px; }
+      .err { color: #ff8a8a; min-height: 18px; font-size: 13px; }
+      .classes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+      .cls { background: #12264a; color: #eaf4ff; border: 3px solid #35588f; text-align: left; font-size: 13px; }
+      .cls.sel { border-color: #ffe066; background: #1c3a6e; }
+      .cls b { display: block; font-size: 16px; margin-bottom: 4px; }
+      .plist { list-style: none; padding: 0; margin: 6px 0; font-size: 15px; }
+      .plist li { padding: 3px 0; display: flex; justify-content: space-between; }
+      .dot { display: inline-block; width: 10px; height: 10px; margin-right: 6px; }
+      #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+      #hud > * { position: absolute; }
+      #me { left: 10px; top: 10px; width: 230px; }
+      .bar { height: 12px; background: #3a1420; border: 2px solid #fff; margin-top: 4px; }
+      .bar > i { display: block; height: 100%; background: #e84a5f; transition: width .15s; }
+      #bossbar { left: 50%; top: 10px; transform: translateX(-50%); width: min(420px, 50vw); text-align: center; }
+      #bossbar .bar > i { background: #5ec8ff; }
+      #side { right: 10px; top: 10px; width: 280px; font-size: 14px; }
+      #side ul { list-style: none; margin: 0 0 10px; padding: 0; }
+      #side li { padding: 2px 0; }
+      #chat { left: 10px; bottom: 10px; width: min(420px, 46vw); pointer-events: auto; }
+      #chatlog { max-height: 150px; overflow: hidden; font-size: 14px; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; margin-bottom: 4px; }
+      #chat input { padding: 7px; font-size: 14px; }
+      #help { right: 10px; bottom: 10px; font-size: 12px; text-align: right; }
+      #dialogue { position: fixed; left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%); width: min(560px, 90vw); padding: 18px 20px;
+        font-size: 18px; line-height: 1.6; z-index: 20; pointer-events: auto; cursor: pointer;
+        box-shadow: 0 0 0 100vmax rgba(5, 10, 24, .55); }
+      #dialogue .who { color: #ffe066; margin-bottom: 10px; font-size: 20px; }
+      #toasts { left: 50%; top: 70px; transform: translateX(-50%); text-align: center; }
+      .toast { background: rgba(10, 22, 44, .92); border: 3px solid #ffe066; padding: 8px 12px; margin-bottom: 6px; font-size: 15px; }
+      .toast.bad { border-color: #ff8a8a; }
+      #downed { inset: 0; background: rgba(120, 0, 0, .35); display: flex; align-items: center; justify-content: center; font-size: 16px; text-align: center; }
+      @media (max-width: 760px) {
+        #side, #help { display: none; }
+        #me { width: 220px; font-size: 13px; }
+        #bossbar { top: 60px; width: 80vw; }
+        #chat { width: 70vw; }
+        .toast { font-size: 13px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <div id="menu" class="screen">
+      <div class="panel">
+        <h1>Christmas Quest</h1>
+        <div class="muted">Save Christmas together. Defeat the Ice King and bring every present home.</div>
+        <div class="row"><input id="name" maxlength="16" placeholder="Your name" /></div>
+        <div class="row"><input id="room" maxlength="24" placeholder="Room code" value="xmas" /></div>
+        <div class="row"><button id="join">Join room</button><span class="muted">Share the room code with your team</span></div>
+        <div id="menuerr" class="err"></div>
+      </div>
+    </div>
+
+    <div id="lobby" class="screen hidden">
+      <div class="panel">
+        <h2>Lobby: room <span id="roomname"></span></h2>
+        <div class="muted">Pick your class, wait for friends (max 6), then the host starts the game.</div>
+        <div class="classes" id="classes"></div>
+        <ul class="plist" id="plist"></ul>
+        <div class="row"><button id="start">Start game</button><span class="muted" id="lobbyhint"></span></div>
+        <div id="lobbyerr" class="err"></div>
+      </div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div id="me" class="panel"><div id="mename"></div><div class="bar"><i id="mehp"></i></div></div>
+      <div id="bossbar" class="panel hidden"><div>Ice King</div><div class="bar"><i id="bosshp"></i></div></div>
+      <div id="side" class="panel"><h2>Quests</h2><ul id="quests"></ul><h2>Leaderboard</h2><ul id="board"></ul></div>
+      <div id="chat"><div id="chatlog"></div><input id="chatinput" maxlength="200" placeholder="Enter to chat" /></div>
+      <div id="help" class="panel">WASD move | E talk | SPACE attack | F heal | ENTER chat</div>
+      <div id="toasts"></div>
+      <div id="downed" class="hidden">You are down!<br />A healer can revive you<br />(or wait a few seconds)</div>
+    </div>
+
+    <div id="dialogue" class="panel hidden"><div class="who" id="dwho"></div><div id="dtext"></div><div class="muted" style="margin-top:6px">click or press E to continue</div></div>
+
+    <div id="victory" class="screen hidden">
+      <div class="panel">
+        <h1>Christmas is saved!</h1>
+        <div class="muted" id="vtime"></div>
+        <ul class="plist" id="vboard"></ul>
+        <div class="row"><button onclick="location.reload()">Play again</button></div>
+      </div>
+    </div>
+
+    <canvas id="snow" class="snow"></canvas>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

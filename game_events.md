@@ -36,6 +36,8 @@ The broker message key is `roomId`, so all events of one room stay in order on o
 
 ## Topics
 
+> **Topic names:** `game.<key>` in this document is shorthand for the real broker topic `team2.<key>` (for example `game.lobby` = `team2.lobby`). The teacher created these 8 topics on the shared broker. (`BROKER_TOPICS=single` is a fallback that sends everything over `team2.events` with a `_topic` tag.)
+
 | Topic | Contains | Key | Written by | Notes |
 |---|---|---|---|---|
 | `game.commands` | All validated player commands | `roomId` | Gateway | Short retention |
@@ -55,17 +57,18 @@ The broker message key is `roomId`, so all events of one room stay in order on o
 | `leave_room` | Client | Lobby consumer | `{}` |
 | `select_class` | Client | Lobby consumer | `{ classId }` (`warrior`, `mage`, `archer`, `healer`) |
 | `start_game` | Client (host) | Lobby consumer | `{}` |
-| `move_player` | Client | World consumer | `{ x, y, dir, seq }` |
+| `move_player` | Client | World consumer | `{ x, y, dir, scene }` |
 | `enter_scene` | Client | World consumer | `{ sceneId }` (`town` or `cave`) |
-| `talk_to_npc` | Client | Quest consumer | `{ npcId }` |
-| `accept_quest` | Client | Quest consumer | `{ questId }` |
+| `talk_to_npc` | Client | Quest consumer | `{ npcId }` (talking also starts that NPC's quest) |
 | `collect_present` | Client | Quest consumer | `{ presentId }` |
 | `return_present` | Client | Quest consumer | `{ presentId, npcId }` |
-| `use_attack` | Client | Combat consumer | `{ abilityId, x, y, dir }` |
-| `heal_player` | Client (Healer) | Combat consumer | `{ targetId }` |
+| `use_attack` | Client | Combat consumer | `{ x, y, dir }` |
+| `heal_player` | Client (Healer) | Combat consumer | `{ targetId?, x, y }` |
 | `send_chat_message` | Client | Chat consumer | `{ text }` |
 
 NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
+
+**Movement fast path.** Sending 30 Hz movement through the broker is too slow (a round trip is about 0.5–1.5 s). So the gateway relays `move_player` straight to the other players in the room as a volatile `live_move` message (not an event, not stored). It also publishes a position checkpoint as a command at most every 500 ms, and on every scene change. The World consumer turns that into `player_moved`.
 
 ## 2. Events
 
@@ -75,18 +78,18 @@ NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 
 | Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `room_joined` | Lobby | Gateway, Replay | `{ playerId, name }` |
-| `room_left` | Lobby | Gateway, World, Replay | `{ playerId }` |
+| `room_joined` | Lobby | Gateway, Replay | `{ playerId, name, classId, isHost, started }` |
+| `room_left` | Lobby | Gateway, World, Replay | `{ playerId, newHostId? }` |
 | `class_selected` | Lobby | Gateway, Combat, Replay | `{ playerId, classId, maxHp }` |
-| `game_started` | Lobby | Gateway, World, Quest, Combat, Leaderboard, Replay | `{ players: [...], sceneId: "town" }` |
+| `game_started` | Lobby | Gateway, World, Quest, Combat, Leaderboard, Replay | `{ players: [...], bossMaxHp }` |
+| `command_rejected` | Lobby, World, Quest, Combat | Gateway (one client) | `{ command, reason }` |
 
 ### `game.world`
 
 | Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `player_moved` | World | Gateway, Replay | `{ playerId, x, y, dir, tick }` |
-| `scene_entered` | World | Gateway, Combat, Replay | `{ playerId, sceneId }` |
-| `move_rejected` | World | Gateway (one client) | `{ playerId, x, y, reason }` |
+| `player_moved` | World | Gateway, Replay | `{ playerId, x, y, dir, scene }` |
+| `scene_entered` | World | Gateway, Combat, Replay | `{ playerId, sceneId, x, y }` |
 
 ### `game.quests`
 
@@ -101,6 +104,7 @@ NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 
 | Event | Producer | Consumers | Payload |
 |---|---|---|---|
+| `presents_unlocked` | Quest | Gateway, Replay | `{ presentIds: [...] }` (after `boss_defeated`) |
 | `present_collected` | Quest | Gateway, Leaderboard, Achievements, Replay | `{ presentId, collectedBy, total }` |
 | `present_returned` | Quest | Gateway, Leaderboard, Replay | `{ presentId, npcId, returnedBy }` |
 | `all_presents_returned` | Quest | Gateway, Achievements, Replay | `{ completedAt }` |
@@ -109,7 +113,7 @@ NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 
 | Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `attack_used` | Combat | Gateway (animations), Replay | `{ playerId, abilityId, x, y, dir }` |
+| `attack_used` | Combat | Gateway (animations), Replay | `{ playerId, classId, x, y, dir }` |
 | `projectile_spawned` | Combat | Gateway, Replay | `{ projectileId, ownerId, type, x, y, dir, speed }` |
 | `boss_damaged` | Combat | Gateway, Leaderboard, Achievements, Replay | `{ attackerId, damage, hp, maxHp }` |
 | `boss_attacked` | Combat | Gateway, Replay | `{ attackId, x, y, radius, delayMs }` |
@@ -119,7 +123,7 @@ NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 | `player_healed` | Combat | Gateway, Leaderboard, Achievements, Replay | `{ playerId, healerId, amount, hp }` |
 | `player_downed` | Combat | Gateway, Achievements, Replay | `{ playerId }` |
 | `player_revived` | Combat | Gateway, Replay | `{ playerId, hp }` |
-| `party_wiped` | Combat | Gateway, Combat (resets boss), Replay | `{}` |
+| `party_wiped` | Combat | Gateway, Combat (resets boss), Replay | `{ bossMaxHp }` |
 
 ### `game.chat` (optional)
 
@@ -133,7 +137,7 @@ NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 |---|---|---|---|
 | `christmas_saved` | Quest | Gateway, Leaderboard, Achievements, Replay | `{ players, durationMs }` |
 | `achievement_unlocked` | Achievements | Gateway, Leaderboard, Replay | `{ playerId, achievementId }` |
-| `leaderboard_updated` | Leaderboard | Gateway | `{ entries: [{ playerId, score }] }` |
+| `leaderboard_updated` | Leaderboard | Gateway | `{ entries: [{ playerId, name, score }] }` |
 
 ## 3. Example flow: damage the boss
 
@@ -148,7 +152,7 @@ NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 ## 4. Rules
 
 - Clients never publish events. Only services publish events.
-- A command can fail (`move_rejected`). An event is always true.
+- A command can fail (`command_rejected`). An event is always true.
 - Consumers must be **idempotent**: seeing the same event twice must not change the result (use the envelope `id`).
 - Every consumer has its own **consumer group**, so each service reads every event it subscribes to.
 - Services do not call each other directly. They talk only through topics.
