@@ -125,8 +125,7 @@ export function createCombat(): Service & { rooms: Map<string, Room> } {
       if (topic === 'world') {
         const pl = rooms.get(roomId)?.players.get(env.payload.playerId);
         if (!pl) return;
-        if (env.type === 'player_moved') Object.assign(pl, { x: env.payload.x, y: env.payload.y, scene: env.payload.scene });
-        else if (env.type === 'scene_entered')
+        if (env.type === 'scene_entered')
           Object.assign(pl, { x: env.payload.x, y: env.payload.y, scene: env.payload.sceneId });
         return;
       }
@@ -135,6 +134,8 @@ export function createCombat(): Service & { rooms: Map<string, Room> } {
       const pid = env.playerId;
       const me = pid ? r?.players.get(pid) : undefined;
       if (!r || !pid || !me || !r.started) return;
+      // Movement is not on the broker; every command carries the gateway's last seen position.
+      if (env.pos && env.pos.scene === me.scene) Object.assign(me, { x: env.pos.x, y: env.pos.y });
       const now = Date.now();
 
       if (env.type === 'use_attack') {

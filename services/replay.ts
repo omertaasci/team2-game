@@ -15,7 +15,6 @@ export function createReplay(): Service {
     name: 'replay',
     topics: ['lobby', 'world', 'quests', 'presents', 'combat', 'chat', 'progress'],
     async handle(_topic, env) {
-      if (env.type === 'player_moved') return; // checkpoints are too noisy for replays
       ready ??= mkdir(replayDir(), { recursive: true });
       await ready;
       await appendFile(join(replayDir(), `${safe(env.roomId)}.jsonl`), JSON.stringify(env) + '\n');

@@ -83,7 +83,7 @@ describe('full game flow over the event broker', () => {
     a.cmd('enter_scene', { sceneId: 'cave' });
     await a.waitFor('scene_entered');
     a.cmd('move_player', { x: 240, y: 150, dir: 'up', scene: 'cave' });
-    await a.waitFor('player_moved');
+    await new Promise((r) => setTimeout(r, 100));
 
     let hp = started.payload.bossMaxHp;
     let t = 0;

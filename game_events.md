@@ -42,7 +42,7 @@ The broker message key is `roomId`, so all events of one room stay in order on o
 |---|---|---|---|---|
 | `game.commands` | All validated player commands | `roomId` | Gateway | Short retention |
 | `game.lobby` | Joining, leaving, class choice, game start | `roomId` | Lobby consumer | |
-| `game.world` | Movement and scene changes | `roomId` | World consumer | High volume, short retention |
+| `game.world` | Scene changes | `roomId` | World consumer | Low volume |
 | `game.quests` | NPC talks, quest progress | `roomId` | Quest consumer | |
 | `game.presents` | Present collection and return | `roomId` | Quest consumer | |
 | `game.combat` | Attacks, damage, healing, boss events | `roomId` | Combat consumer | |
@@ -57,7 +57,7 @@ The broker message key is `roomId`, so all events of one room stay in order on o
 | `leave_room` | Client | Lobby consumer | `{}` |
 | `select_class` | Client | Lobby consumer | `{ classId }` (`warrior`, `mage`, `archer`, `healer`) |
 | `start_game` | Client (host) | Lobby consumer | `{}` |
-| `move_player` | Client | World consumer | `{ x, y, dir, scene }` |
+| `move_player` | Client | Gateway only (WebSocket, never published to the broker) | `{ x, y, dir, scene }` |
 | `enter_scene` | Client | World consumer | `{ sceneId }` (`town` or `cave`) |
 | `talk_to_npc` | Client | Quest consumer | `{ npcId }` (talking also starts that NPC's quest) |
 | `collect_present` | Client | Quest consumer | `{ presentId }` |
@@ -68,7 +68,7 @@ The broker message key is `roomId`, so all events of one room stay in order on o
 
 NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 
-**Movement fast path.** Sending 30 Hz movement through the broker is too slow (a round trip is about 0.5–1.5 s). So the gateway relays `move_player` straight to the other players in the room as a volatile `live_move` message (not an event, not stored). It also publishes a position checkpoint as a command at most every 500 ms, and on every scene change. The World consumer turns that into `player_moved`.
+**Movement stays off the broker.** `move_player` goes over the WebSocket to the gateway, which relays it to the other players in the room as a volatile `live` message (not an event, not stored). Only meaningful events are published. The gateway adds the player's last known position (`pos`) to the commands that need it, such as attacks and heals.
 
 ## 2. Events
 
@@ -88,7 +88,6 @@ NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 
 | Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `player_moved` | World | Gateway, Replay | `{ playerId, x, y, dir, scene }` |
 | `scene_entered` | World | Gateway, Combat, Replay | `{ playerId, sceneId, x, y }` |
 
 ### `game.quests`

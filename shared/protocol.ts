@@ -33,6 +33,8 @@ export interface Envelope<P = any> {
   playerId?: string;
   timestamp: string;
   payload: P;
+  /** Last position the gateway saw for the player; movement itself never goes through the broker. */
+  pos?: { x: number; y: number; scene: SceneId };
 }
 
 export const COMMAND_TYPES = [
@@ -72,7 +74,6 @@ export const EVENT_TOPIC = {
   class_selected: 'lobby',
   game_started: 'lobby',
   command_rejected: 'lobby',
-  player_moved: 'world',
   scene_entered: 'world',
   npc_talked_to: 'quests',
   quest_started: 'quests',
@@ -112,7 +113,6 @@ export interface EventPayloads {
   class_selected: { playerId: string; classId: ClassId; maxHp: number };
   game_started: { players: PlayerSummary[]; bossMaxHp: number };
   command_rejected: { command: string; reason: string };
-  player_moved: { playerId: string; x: number; y: number; dir: Dir; scene: SceneId };
   scene_entered: { playerId: string; sceneId: SceneId; x: number; y: number };
   npc_talked_to: { playerId: string; npcId: NpcId; lines: string[] };
   quest_started: { questId: NpcId; npcId: NpcId; title: string; description: string };

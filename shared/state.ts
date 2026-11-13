@@ -91,16 +91,6 @@ export function applyEvent(state: RoomState, ev: Envelope): void {
       }
       break;
     }
-    case 'player_moved': {
-      const pl = state.players[p.playerId];
-      if (pl) {
-        pl.x = p.x;
-        pl.y = p.y;
-        pl.dir = p.dir;
-        pl.scene = p.scene;
-      }
-      break;
-    }
     case 'scene_entered': {
       const pl = state.players[p.playerId];
       if (pl) {

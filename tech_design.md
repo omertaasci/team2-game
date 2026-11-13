@@ -86,7 +86,7 @@ Browser N  --cmd-->  push events        game.world     <-- events --
 | **Client** | Renders the game, sends commands, applies events | Events from the gateway | Commands |
 | **Gateway** | WebSocket server. Authenticates the connection, validates command shape, adds `roomId` and `playerId`, publishes commands. Pushes events to the room's clients. | All event topics | `game.commands` |
 | **Lobby** | Rooms, players, class choice, game start | `game.commands` | `game.lobby` |
-| **World** | Movement rules, collisions, scenes | `game.commands` | `game.world` |
+| **World** | Scene changes, room rules | `game.commands` | `game.world` |
 | **Quest** | NPC dialogue, quests, presents, ending | `game.commands`, `game.combat` | `game.quests`, `game.presents`, `game.progress` |
 | **Combat and boss** | Damage, healing, Ice King AI | `game.commands`, `game.lobby`, `game.world` | `game.combat` |
 | **Chat** | Chat messages (optional) | `game.commands` | `game.chat` |
@@ -144,12 +144,12 @@ On restart, a consumer replays its topics from the start (or from a snapshot) to
 
 ## 8. Latency
 
-A command goes browser -> gateway -> broker -> service -> broker -> gateway -> browser. Measured on the shared broker, a round trip is about 0.5–1.7 s. That is fine for talking, quests and combat, but too slow for movement.
+A command goes browser -> gateway -> broker -> service -> broker -> gateway -> browser. Measured on the shared broker, a round trip is about 0.5–1.7 s. That is fine for talking, quests and combat, but far too slow for movement.
 
-Movement is therefore a hybrid:
+Movement is **not** sent through the broker, so the broker only carries meaningful events:
 - The client moves its own player immediately.
-- The gateway relays `move_player` to the other players at once as a volatile `live_move` message (not stored).
-- The gateway publishes a position checkpoint to the broker at most every 500 ms, and on scene changes. The World consumer turns it into `player_moved`.
+- `move_player` goes straight over the WebSocket to the gateway. The gateway relays it to the other players in the room as a volatile `live` message and never publishes it.
+- The gateway remembers each player's last position. It attaches that position to the commands that need it (attack, heal, talk, collect, scene change), so services like Combat know where a player is without any movement events.
 - Other players are interpolated on the client.
 
 ## 9. Folder structure
@@ -197,7 +197,7 @@ npm run dev              # client (Vite) + server on http://localhost:5173
 
 | Risk | Mitigation |
 |---|---|
-| Broker latency makes movement feel slow | Hybrid movement: live relay plus checkpoints, interpolation |
+| Broker latency makes movement feel slow | Movement never touches the broker: WebSocket relay plus interpolation |
 | Shared broker has only 8 fixed topics | Run one copy at a time on the shared broker; develop on the in-memory broker |
 | Duplicate events | Idempotent consumers using the envelope `id` |
 | Services drift apart on message format | One `shared/` module with types |

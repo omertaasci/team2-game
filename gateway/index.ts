@@ -22,7 +22,6 @@ import { PRESENT_IDS } from '../shared/world.js';
 
 const DIRS: Dir[] = ['down', 'up', 'left', 'right'];
 const SCENES: SceneId[] = ['town', 'cave'];
-const MOVE_PUBLISH_MS = 500;
 
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
@@ -108,16 +107,18 @@ export async function createGateway(broker: Broker, ns: string, staticDir?: stri
     },
   );
 
-  const publishCommand = (type: string, roomId: string, payload: unknown, playerId: string) =>
-    broker.publish(commandsTopic, [envelope(type, roomId, payload, playerId)]);
+  const publishCommand = (type: string, roomId: string, payload: unknown, playerId: string, pos?: Envelope['pos']) => {
+    const env = envelope(type, roomId, payload, playerId);
+    if (pos) env.pos = pos;
+    return broker.publish(commandsTopic, [env]);
+  };
 
   io.on('connection', (socket: Socket) => {
     const playerId = socket.id;
     let roomId: string | undefined;
     let joined = false;
     let spectator = false;
-    let lastMovePublish = 0;
-    let lastScene: SceneId | undefined;
+    let lastPos: Envelope['pos'];
     let tokens = 80;
     const refill = setInterval(() => (tokens = Math.min(80, tokens + 40)), 1000);
 
@@ -151,14 +152,15 @@ export async function createGateway(broker: Broker, ns: string, staticDir?: stri
       if (!joined || !roomId) return;
 
       if (type === 'move_player') {
+        // Movement stays on the WebSocket: relay to the room, never publish to the broker.
         const p = payload as { x: number; y: number; dir: Dir; scene: SceneId };
+        lastPos = { x: p.x, y: p.y, scene: p.scene };
         socket.to(roomId).volatile.emit('live', { playerId, ...p });
-        const now = Date.now();
-        if (now - lastMovePublish < MOVE_PUBLISH_MS && lastScene === p.scene) return;
-        lastMovePublish = now;
-        lastScene = p.scene;
+        const pl = rooms.get(roomId)?.players[playerId];
+        if (pl && pl.scene === p.scene) Object.assign(pl, { x: p.x, y: p.y, dir: p.dir });
+        return;
       }
-      void publishCommand(type, roomId, payload, playerId);
+      void publishCommand(type, roomId, payload, playerId, lastPos);
     });
 
     socket.on('disconnect', () => {

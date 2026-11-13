@@ -1,17 +1,14 @@
-import type { CommandPayloads, Dir, SceneId } from '../shared/protocol.js';
-import { MOVE_BOUNDS, SCENES, TOWN_RETURN_SPAWN } from '../shared/world.js';
+import type { CommandPayloads } from '../shared/protocol.js';
+import { SCENES, TOWN_RETURN_SPAWN } from '../shared/world.js';
 import type { Service } from './runtime.js';
 
 interface WPlayer {
-  scene: SceneId;
+  scene: 'town' | 'cave';
 }
 interface Room {
   started: boolean;
   players: Map<string, WPlayer>;
 }
-
-const DIRS: Dir[] = ['down', 'up', 'left', 'right'];
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export function createWorld(): Service {
   const rooms = new Map<string, Room>();
@@ -43,19 +40,7 @@ export function createWorld(): Service {
       const me = pid ? room?.players.get(pid) : undefined;
       if (!room || !pid || !me) return;
 
-      if (env.type === 'move_player') {
-        const p = env.payload as CommandPayloads['move_player'];
-        if (!room.started || p?.scene !== me.scene) return;
-        if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
-        const b = MOVE_BOUNDS[me.scene];
-        const dir = DIRS.includes(p.dir) ? p.dir : 'down';
-        ctx.emit(
-          'player_moved',
-          env.roomId,
-          { playerId: pid, x: clamp(p.x, b.minX, b.maxX), y: clamp(p.y, b.minY, b.maxY), dir, scene: me.scene },
-          { playerId: pid },
-        );
-      } else if (env.type === 'enter_scene') {
+      if (env.type === 'enter_scene') {
         const p = env.payload as CommandPayloads['enter_scene'];
         if (!room.started) return ctx.reject(env, 'world', 'game_not_started');
         if (p?.sceneId !== 'town' && p?.sceneId !== 'cave') return;
