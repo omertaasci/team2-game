@@ -108,10 +108,10 @@ export const DIALOGUE: Record<NpcId, { idle: string[]; active: string[]; ready: 
     ],
     active: ['The cave is to the east. Be brave, and bring my sack back!'],
     ready: ['My sack! You really did it! Thank you, heroes!'],
-    completed: ['Merry Christmas! You saved the day!'],
+    completed: ['Merry Christmas! Your bravery saved the day!'],
   },
   elf: {
-    idle: ['Oh no, my gift is gone! The Ice King took it.', 'Please find it in his cave!'],
+    idle: ['Oh no, my gift is gone! The Ice King took it.', 'Please find it, it is in his cave!'],
     active: ["Have you found my gift yet? It is wrapped in green paper."],
     ready: ['My gift! Thank you so much!'],
     completed: ['I will never lose a gift again. Promise!'],
