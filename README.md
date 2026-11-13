@@ -100,7 +100,9 @@ team2-game/
 ├── client/      # Phaser 3 game
 ├── server/      # Node.js + Socket.IO server
 ├── shared/      # Network message types shared by both sides
-└── gameidea.md  # Original game design
+├── concept.md        # Game concept
+├── game_events.md    # Event list (producers, consumers, payloads)
+└── tech_design.md    # Technical design
 ```
 
 ## 🧭 Roadmap
