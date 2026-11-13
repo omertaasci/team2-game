@@ -9,7 +9,7 @@ import { createBroker, loadConfig } from '../broker/index.js';
 import { createGateway } from '../gateway/index.js';
 import { startServices } from '../services/index.js';
 
-const cfg = { ...loadConfig(), kind: 'http' as const, ns: 'smoke' };
+const cfg = { ...loadConfig(), kind: 'http' as const, ns: process.env.TOPIC_NS ?? '' };
 if (!cfg.password) {
   console.error('Set BROKER_PASSWORD first.');
   process.exit(1);

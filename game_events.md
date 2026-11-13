@@ -36,9 +36,7 @@ The broker message key is `roomId`, so all events of one room stay in order on o
 
 ## Topics
 
-> In this document a topic is written `game.<key>`. On the shared broker the real name is `team2.[ns.]<key>` (for example `team2.lobby`). `ns` is the optional `TOPIC_NS` setting that keeps developers apart.
->
-> **Single-topic mode (default):** the shared broker does not create new topics for us, so all topics travel over the existing `team2.events` topic. Every message carries a `_topic` field and each consumer filters on it. Set `BROKER_TOPICS=multi` to use one real broker topic per key once topic creation works.
+> **Topic names:** `game.<key>` in this document is shorthand for the real broker topic `team2.<key>` (for example `game.lobby` = `team2.lobby`). The teacher created these 8 topics on the shared broker. (`BROKER_TOPICS=single` is a fallback that sends everything over `team2.events` with a `_topic` tag.)
 
 | Topic | Contains | Key | Written by | Notes |
 |---|---|---|---|---|

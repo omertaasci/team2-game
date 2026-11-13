@@ -28,7 +28,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BrokerConfig {
     password: env.BROKER_PASSWORD ?? '',
     ns: env.TOPIC_NS ?? '',
     port: Number(env.PORT ?? 3000),
-    singleTopic: env.BROKER_TOPICS === 'multi' ? '' : (env.BROKER_SINGLE_TOPIC ?? 'team2.events'),
+    singleTopic: env.BROKER_TOPICS === 'single' ? (env.BROKER_SINGLE_TOPIC ?? 'team2.events') : '',
   };
 }
 

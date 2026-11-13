@@ -162,6 +162,7 @@ export class HttpBroker implements Broker {
           for (const rec of records) {
             const env = rec.value;
             if (!env || env.type === 'topic_warmup') continue;
+            if (typeof env.type !== 'string' || typeof env.roomId !== 'string') continue;
             if (Date.parse(env.timestamp) < since) continue;
             try {
               await handler(rec.topic, env);

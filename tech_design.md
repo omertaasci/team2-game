@@ -131,9 +131,11 @@ On restart, a consumer replays its topics from the start (or from a snapshot) to
 
 ## 7. Broker settings
 
+- **Topic names:** `game.<key>` in this document is shorthand for the real topic `team2.<key>`.
 - **Partitions:** a few per topic. The key is `roomId`, so events of one room stay in order.
 - **Consumer groups:** one per service, named `team2.[ns-]<service>` (for example `team2.quest`). The broker requires the `team2` prefix.
-- **Single-topic mode (default):** the shared broker never creates new topics for us, so all logical topics share `team2.events` and each message has a `_topic` tag. `BROKER_TOPICS=multi` switches to real per-key topics.
+- **Topics:** the 8 topics (`team2.commands`, `lobby`, `world`, `quests`, `presents`, `combat`, `chat`, `progress`) were created by the teacher, because the REST proxy does not create topics on its own. Only these can be used. `TOPIC_NS` only makes sense if matching topics exist, so leave it empty on the shared broker and use `BROKER=memory` for local development.
+- **Fallback:** `BROKER_TOPICS=single` sends everything over `team2.events` with a `_topic` tag, in case the topics are missing.
 - **Batching:** the REST proxy handles one request at a time, so the broker client queues messages and sends everything waiting in one request.
 - **Consumers:** `auto.offset.reset=earliest` is required. Services skip messages older than their start time. Consumer creation can fail with `50003`, so it is retried.
 - **Retention:** short for commands and world, long for progress and replay data.
@@ -182,7 +184,7 @@ npm run dev              # client (Vite) + server on http://localhost:5173
 ```
 
 - `BROKER=memory` (default): everything runs in one process, no broker needed.
-- `BROKER=http`: use the shared Redpanda broker. Set `BROKER_PASSWORD` and your own `TOPIC_NS` (for example your name) so developers do not read each other's events.
+- `BROKER=http`: use the shared Redpanda broker. Set `BROKER_PASSWORD`. All developers share the same 8 topics, so run only one copy at a time.
 - Split deployment: `npx tsx server.ts --gateway` and `npx tsx server.ts --services=quest,combat` (needs `BROKER=http`). This is how each teammate can run only their own consumer.
 
 ## 12. Testing
@@ -196,7 +198,7 @@ npm run dev              # client (Vite) + server on http://localhost:5173
 | Risk | Mitigation |
 |---|---|
 | Broker latency makes movement feel slow | Hybrid movement: live relay plus checkpoints, interpolation |
-| Shared broker does not create new topics | Single-topic mode with `_topic` tag |
+| Shared broker has only 8 fixed topics | Run one copy at a time on the shared broker; develop on the in-memory broker |
 | Duplicate events | Idempotent consumers using the envelope `id` |
 | Services drift apart on message format | One `shared/` module with types |
 | Missing character art | Recolor existing sprites, use class stats instead of unique animations |

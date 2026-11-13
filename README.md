@@ -91,7 +91,7 @@ npm run dev
 
 Open http://localhost:5173 in several browser tabs to play together. By default everything runs in one process with an in-memory broker.
 
-To use the shared Redpanda broker, copy `.env.example` to `.env` and set `BROKER=http`, `BROKER_PASSWORD` (ask the team, never commit it) and your own `TOPIC_NS`.
+To use the shared Redpanda broker, copy `.env.example` to `.env` and set `BROKER=http` and `BROKER_PASSWORD` (ask the team, never commit it). Only one copy of the game should run against the shared broker at a time, because everyone shares the same 8 topics. For development use the default in-memory mode.
 
 ### 🐳 Deployment (Docker)
 
@@ -109,8 +109,8 @@ One container runs the web client, gateway and all services. Open `http://<host>
 | `BROKER` | no | `http` in Docker | `http` = shared broker, `memory` = no broker |
 | `BROKER_URL` | no | `https://edp-broker.codewithpeter.com` | Redpanda REST proxy |
 | `BROKER_USER` | no | `team2` | Broker user |
-| `BROKER_TOPICS` | no | `single` | `single` = all topics over `team2.events`, `multi` = real topics |
-| `TOPIC_NS` | no | empty | Prefix for topics and groups, to separate environments |
+| `BROKER_TOPICS` | no | `multi` | `multi` = the 8 real topics (`team2.lobby`, ...), `single` = fallback over `team2.events` |
+| `TOPIC_NS` | no | empty | Leave empty on the shared broker (only the 8 fixed topics exist) |
 
 Players need WebSocket support through any reverse proxy. Startup takes up to about 20 s while consumers connect to the broker.
 
