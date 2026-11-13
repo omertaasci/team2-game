@@ -93,6 +93,27 @@ Open http://localhost:5173 in several browser tabs to play together. By default 
 
 To use the shared Redpanda broker, copy `.env.example` to `.env` and set `BROKER=http`, `BROKER_PASSWORD` (ask the team, never commit it) and your own `TOPIC_NS`.
 
+### 🐳 Deployment (Docker)
+
+```bash
+docker build -t team2-game .
+docker run -p 3000:3000 -e BROKER_PASSWORD=... team2-game
+```
+
+One container runs the web client, gateway and all services. Open `http://<host>:3000`.
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `BROKER_PASSWORD` | yes | | Password of the `team2` broker user (never commit it) |
+| `PORT` | no | `3000` | Port the server listens on |
+| `BROKER` | no | `http` in Docker | `http` = shared broker, `memory` = no broker |
+| `BROKER_URL` | no | `https://edp-broker.codewithpeter.com` | Redpanda REST proxy |
+| `BROKER_USER` | no | `team2` | Broker user |
+| `BROKER_TOPICS` | no | `single` | `single` = all topics over `team2.events`, `multi` = real topics |
+| `TOPIC_NS` | no | empty | Prefix for topics and groups, to separate environments |
+
+Players need WebSocket support through any reverse proxy. Startup takes up to about 20 s while consumers connect to the broker.
+
 **Controls:** `WASD` move · `E` talk / pick up · `Space` attack · `F` heal · `Enter` chat
 
 **Tests:** `npm test` (full game flow) and `npm run smoke:http` (shared broker).
