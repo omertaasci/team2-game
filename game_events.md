@@ -1,89 +1,154 @@
 # Game Events
 
-All events are named in **past tense** (`snake_case`): they describe something that has already happened.
+The game runs on an **event-driven server** built around an **event broker** (Kafka-compatible, Redpanda).
 
-**Producers and consumers**
+- Players' browsers are **producers of commands**: they send *commands* to the gateway over WebSocket.
+- The **gateway** validates each command and publishes it to the broker.
+- Independent **consumers** (services) read commands, apply the game rules and publish **domain events** to topics.
+- Other consumers react to those events (state, quests, leaderboard, achievements, replay, chat).
+- The gateway also consumes events and pushes them back to the right clients.
 
-- **Client** – a player's browser (Phaser game).
-- **Server** – the authoritative Node.js + Socket.IO server. It validates client events and broadcasts the results.
-- **UI** – HUD, dialogue box, quest log and chat panel on the client.
-- **Scene** – the Phaser Town or Cave scene.
+## Naming rules
 
-Client events are *requests* that the server checks. Server events are the *truth* that all clients apply.
-
-## 1. Connection and lobby
-
-| Event | Producer | Consumer | Payload |
+| Kind | Meaning | Naming | Example |
 |---|---|---|---|
-| `player_joined` | Server | All clients | `{ playerId, name, classId, x, y }` |
-| `player_left` | Server | All clients | `{ playerId }` |
-| `class_selected` | Client | Server | `{ playerId, classId }` (`warrior`, `mage`, `archer`, `healer`) |
-| `class_assigned` | Server | All clients | `{ playerId, classId, maxHp }` |
-| `game_started` | Server | All clients | `{ sceneId: "town", players: [...], questState }` |
-| `state_synced` | Server | One client (on join or rejoin) | `{ players, questState, bossState, presentsCollected }` |
+| **Command** | What a player *asks for*. It may be rejected. | Imperative: `verb_noun` | `talk_to_npc` |
+| **Event** | What *happened*. It is a fact and cannot be undone. | Past tense: `noun_verbed` | `npc_talked_to` |
 
-## 2. Movement
+All names are `snake_case`.
 
-| Event | Producer | Consumer | Payload |
+## Envelope
+
+Every message uses the same envelope. The payloads in the tables below go in `payload`.
+
+```json
+{
+  "id": "uuid",
+  "type": "boss_damaged",
+  "roomId": "room-1",
+  "playerId": "p-42",
+  "timestamp": "2026-11-13T12:00:00.000Z",
+  "payload": { }
+}
+```
+
+The broker message key is `roomId`, so all events of one room stay in order on one partition.
+
+## Topics
+
+| Topic | Contains | Key | Written by | Notes |
+|---|---|---|---|---|
+| `game.commands` | All validated player commands | `roomId` | Gateway | Short retention |
+| `game.lobby` | Joining, leaving, class choice, game start | `roomId` | Lobby consumer | |
+| `game.world` | Movement and scene changes | `roomId` | World consumer | High volume, short retention |
+| `game.quests` | NPC talks, quest progress | `roomId` | Quest consumer | |
+| `game.presents` | Present collection and return | `roomId` | Quest consumer | |
+| `game.combat` | Attacks, damage, healing, boss events | `roomId` | Combat consumer | |
+| `game.chat` | Chat messages | `roomId` | Chat consumer | Optional |
+| `game.progress` | Game finished, achievements, leaderboard | `roomId` | Quest, Achievements, Leaderboard consumers | Long retention |
+
+## 1. Commands (client -> gateway -> `game.commands`)
+
+| Command | Sent by | Handled by | Payload |
 |---|---|---|---|
-| `player_moved` | Client | Server | `{ playerId, x, y, dir, seq }` |
-| `players_updated` | Server (about 20 times a second) | All clients (Scene) | `{ players: [{ playerId, x, y, dir }], tick }` |
-| `scene_entered` | Server | All clients (Scene) | `{ playerId, sceneId }` (`town` or `cave`) |
-
-## 3. NPCs and quests
-
-| Event | Producer | Consumer | Payload |
-|---|---|---|---|
-| `npc_talked_to` | Client | Server | `{ playerId, npcId }` |
-| `dialogue_started` | Server | The talking client (UI) | `{ playerId, npcId, lines: [...] }` |
-| `quest_started` | Server | All clients (UI) | `{ questId, npcId, title, description }` |
-| `quest_progressed` | Server | All clients (UI) | `{ questId, progress, goal }` |
-| `quest_completed` | Server | All clients (UI) | `{ questId, npcId, completedBy: [playerIds] }` |
-| `reward_granted` | Server | All clients (UI) | `{ questId, reward }` |
+| `join_room` | Client | Lobby consumer | `{ name }` |
+| `leave_room` | Client | Lobby consumer | `{}` |
+| `select_class` | Client | Lobby consumer | `{ classId }` (`warrior`, `mage`, `archer`, `healer`) |
+| `start_game` | Client (host) | Lobby consumer | `{}` |
+| `move_player` | Client | World consumer | `{ x, y, dir, seq }` |
+| `enter_scene` | Client | World consumer | `{ sceneId }` (`town` or `cave`) |
+| `talk_to_npc` | Client | Quest consumer | `{ npcId }` |
+| `accept_quest` | Client | Quest consumer | `{ questId }` |
+| `collect_present` | Client | Quest consumer | `{ presentId }` |
+| `return_present` | Client | Quest consumer | `{ presentId, npcId }` |
+| `use_attack` | Client | Combat consumer | `{ abilityId, x, y, dir }` |
+| `heal_player` | Client (Healer) | Combat consumer | `{ targetId }` |
+| `send_chat_message` | Client | Chat consumer | `{ text }` |
 
 NPC ids: `santa`, `elf`, `toy_maker`, `snowman`, `reindeer_keeper`.
 
-## 4. Presents
+## 2. Events
 
-| Event | Producer | Consumer | Payload |
+**Producer** is the consumer service that publishes the event after applying the rules. **Consumers** are the services that react to it. *Gateway* means the event is pushed to the clients in the room.
+
+### `game.lobby`
+
+| Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `present_collected` | Server (after a client request) | All clients (Scene, UI) | `{ presentId, collectedBy, total }` |
-| `present_returned` | Server (after a client request) | All clients (UI) | `{ presentId, npcId, returnedBy }` |
-| `all_presents_returned` | Server | All clients | `{ completedAt }` |
+| `room_joined` | Lobby | Gateway, Replay | `{ playerId, name }` |
+| `room_left` | Lobby | Gateway, World, Replay | `{ playerId }` |
+| `class_selected` | Lobby | Gateway, Combat, Replay | `{ playerId, classId, maxHp }` |
+| `game_started` | Lobby | Gateway, World, Quest, Combat, Leaderboard, Replay | `{ players: [...], sceneId: "town" }` |
 
-## 5. Combat
+### `game.world`
 
-| Event | Producer | Consumer | Payload |
+| Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `attack_used` | Client | Server | `{ playerId, abilityId, x, y, dir }` |
-| `projectile_spawned` | Server | All clients (Scene) | `{ projectileId, ownerId, type, x, y, dir, speed }` |
-| `boss_damaged` | Server | All clients (UI, Scene) | `{ damage, hp, maxHp, attackerId }` |
-| `player_damaged` | Server | All clients (UI) | `{ playerId, damage, hp, sourceId }` |
-| `player_healed` | Server | All clients (UI) | `{ playerId, amount, hp, healerId }` |
-| `player_downed` | Server | All clients (Scene, UI) | `{ playerId }` |
-| `player_revived` | Server | All clients (Scene, UI) | `{ playerId, hp }` |
-| `boss_attacked` | Server | All clients (Scene) | `{ attackId, x, y, radius, delayMs }` |
-| `boss_phase_changed` | Server | All clients (Scene, UI) | `{ phase }` |
-| `boss_defeated` | Server | All clients | `{ defeatedAt, contributors: [playerIds] }` |
-| `party_wiped` | Server | All clients | `{}` (everyone is down, the boss fight restarts) |
+| `player_moved` | World | Gateway, Replay | `{ playerId, x, y, dir, tick }` |
+| `scene_entered` | World | Gateway, Combat, Replay | `{ playerId, sceneId }` |
+| `move_rejected` | World | Gateway (one client) | `{ playerId, x, y, reason }` |
 
-## 6. Chat (optional)
+### `game.quests`
 
-| Event | Producer | Consumer | Payload |
+| Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `chat_message_sent` | Client | Server | `{ playerId, text }` |
-| `chat_message_received` | Server | All clients (UI) | `{ playerId, name, text, timestamp }` |
+| `npc_talked_to` | Quest | Gateway (dialogue UI), Achievements, Replay | `{ playerId, npcId, lines: [...] }` |
+| `quest_started` | Quest | Gateway, Achievements, Replay | `{ questId, npcId, title, description }` |
+| `quest_progressed` | Quest | Gateway, Replay | `{ questId, progress, goal }` |
+| `quest_completed` | Quest | Gateway, Leaderboard, Achievements, Replay | `{ questId, npcId, completedBy: [playerIds] }` |
 
-## 7. Game end
+### `game.presents`
 
-| Event | Producer | Consumer | Payload |
+| Event | Producer | Consumers | Payload |
 |---|---|---|---|
-| `christmas_saved` | Server | All clients (UI) | `{ players, durationMs }` |
-| `game_reset` | Server | All clients | `{}` |
+| `present_collected` | Quest | Gateway, Leaderboard, Achievements, Replay | `{ presentId, collectedBy, total }` |
+| `present_returned` | Quest | Gateway, Leaderboard, Replay | `{ presentId, npcId, returnedBy }` |
+| `all_presents_returned` | Quest | Gateway, Achievements, Replay | `{ completedAt }` |
 
-## Main flow example
+### `game.combat`
 
-1. `class_selected` -> `class_assigned` -> `game_started`
-2. `npc_talked_to` -> `dialogue_started` -> `quest_started`
-3. `scene_entered` (cave) -> `attack_used` -> `projectile_spawned` -> `boss_damaged` -> `boss_defeated`
-4. `present_collected` (x5) -> `present_returned` -> `quest_completed` -> `all_presents_returned` -> `christmas_saved`
+| Event | Producer | Consumers | Payload |
+|---|---|---|---|
+| `attack_used` | Combat | Gateway (animations), Replay | `{ playerId, abilityId, x, y, dir }` |
+| `projectile_spawned` | Combat | Gateway, Replay | `{ projectileId, ownerId, type, x, y, dir, speed }` |
+| `boss_damaged` | Combat | Gateway, Leaderboard, Achievements, Replay | `{ attackerId, damage, hp, maxHp }` |
+| `boss_attacked` | Combat | Gateway, Replay | `{ attackId, x, y, radius, delayMs }` |
+| `boss_phase_changed` | Combat | Gateway, Replay | `{ phase }` |
+| `boss_defeated` | Combat | Gateway, Quest, Leaderboard, Achievements, Replay | `{ contributors: [playerIds] }` |
+| `player_damaged` | Combat | Gateway, Achievements, Replay | `{ playerId, damage, hp, sourceId }` |
+| `player_healed` | Combat | Gateway, Leaderboard, Achievements, Replay | `{ playerId, healerId, amount, hp }` |
+| `player_downed` | Combat | Gateway, Achievements, Replay | `{ playerId }` |
+| `player_revived` | Combat | Gateway, Replay | `{ playerId, hp }` |
+| `party_wiped` | Combat | Gateway, Combat (resets boss), Replay | `{}` |
+
+### `game.chat` (optional)
+
+| Event | Producer | Consumers | Payload |
+|---|---|---|---|
+| `chat_message_sent` | Chat | Gateway, Replay | `{ playerId, name, text }` |
+
+### `game.progress`
+
+| Event | Producer | Consumers | Payload |
+|---|---|---|---|
+| `christmas_saved` | Quest | Gateway, Leaderboard, Achievements, Replay | `{ players, durationMs }` |
+| `achievement_unlocked` | Achievements | Gateway, Leaderboard, Replay | `{ playerId, achievementId }` |
+| `leaderboard_updated` | Leaderboard | Gateway | `{ entries: [{ playerId, score }] }` |
+
+## 3. Example flow: damage the boss
+
+1. The client sends the command `use_attack`.
+2. The gateway validates it and publishes it to `game.commands`.
+3. The Combat consumer reads it, checks range and cooldown, and publishes `attack_used` and `boss_damaged` to `game.combat`.
+4. The Gateway pushes both events to all clients in the room.
+5. The Leaderboard consumer adds damage score. The Replay consumer stores the events.
+6. When boss HP reaches 0, Combat publishes `boss_defeated`.
+7. The Quest consumer reacts and unlocks the presents. Once they are returned it publishes `christmas_saved`. Achievements reacts and publishes `achievement_unlocked`.
+
+## 4. Rules
+
+- Clients never publish events. Only services publish events.
+- A command can fail (`move_rejected`). An event is always true.
+- Consumers must be **idempotent**: seeing the same event twice must not change the result (use the envelope `id`).
+- Every consumer has its own **consumer group**, so each service reads every event it subscribes to.
+- Services do not call each other directly. They talk only through topics.

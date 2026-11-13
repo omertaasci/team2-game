@@ -76,8 +76,9 @@ Your team arrives in a snowy village and meets five NPCs who each lost something
 |---|---|
 | Game engine | [Phaser 3](https://phaser.io/) |
 | Client | TypeScript, Vite, HTML, CSS |
-| Server | Node.js |
-| Multiplayer | [Socket.IO](https://socket.io/) (server-authoritative) |
+| Gateway and services | Node.js, TypeScript |
+| Browser connection | WebSocket ([Socket.IO](https://socket.io/)) |
+| Event broker | [Redpanda](https://redpanda.com/) (Kafka-compatible) |
 
 ## 🚀 Getting Started
 
@@ -98,8 +99,9 @@ Then open the printed local URL in several browser tabs to play together.
 team2-game/
 ├── assets/      # Sprites, tilesets and UI art
 ├── client/      # Phaser 3 game
-├── server/      # Node.js + Socket.IO server
-├── shared/      # Network message types shared by both sides
+├── gateway/     # WebSocket <-> event broker
+├── services/    # Event consumers (lobby, quest, combat, leaderboard, ...)
+├── shared/      # Command and event types shared by all parts
 ├── concept.md        # Game concept
 ├── game_events.md    # Event list (producers, consumers, payloads)
 └── tech_design.md    # Technical design
