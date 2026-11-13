@@ -14,6 +14,23 @@ import {
 import { command, onEvent, onLive, onSnapshot, store } from './net.js';
 
 const FRAMES: Record<Dir, number> = { down: 0, up: 4, left: 8, right: 12 };
+
+// Text is rendered at high resolution with smooth filtering; pixelArt mode would otherwise make it jagged.
+function textStyle(size: number, color: string): Phaser.Types.GameObjects.Text.TextStyle {
+  return {
+    fontFamily: '"Trebuchet MS", Verdana, Arial, sans-serif',
+    fontStyle: 'bold',
+    fontSize: `${size}px`,
+    color,
+    stroke: '#0b1426',
+    strokeThickness: Math.max(2, Math.round(size / 3)),
+    resolution: 6,
+  };
+}
+function smooth<T extends Phaser.GameObjects.Text>(t: T): T {
+  t.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  return t;
+}
 const PRESENT_TEX = ['present1', 'present2', 'present3', 'present4', 'present1'];
 const WALK_SEND_MS = 60;
 
@@ -153,6 +170,8 @@ export class GameScene extends Phaser.Scene {
     this.transitioning = false;
     const { width, height } = SCENES[id];
     this.cameras.main.setBounds(0, 0, width, height);
+    // The canvas is 960x600 and the world is shown at 2x, so text is drawn sharply.
+    this.cameras.main.setZoom(2);
     this.cameras.main.setBackgroundColor(id === 'town' ? '#8fb0d8' : '#120b1c');
     if (id === 'town') this.buildTown(width, height);
     else this.buildCave(width, height);
@@ -163,9 +182,7 @@ export class GameScene extends Phaser.Scene {
 
   private add_text(x: number, y: number, s: string, color = '#fff', size = 7) {
     return this.track(
-      this.make
-        .text({ x, y, text: s, style: { fontFamily: 'monospace', fontSize: `${size}px`, color, stroke: '#000', strokeThickness: 2, resolution: 3 } }, true)
-        .setOrigin(0.5),
+      smooth(this.make.text({ x, y, text: s, style: textStyle(size, color) }, true)).setOrigin(0.5),
     );
   }
 
@@ -210,8 +227,8 @@ export class GameScene extends Phaser.Scene {
       if (n.id === 'santa') s.setScale(1.2);
       c.add(s);
     }
-    c.add(this.make.text({ x: 0, y: -14, text: n.name, style: { fontFamily: 'monospace', fontSize: '6px', color: '#fff', stroke: '#000', strokeThickness: 2, resolution: 3 } }, false).setOrigin(0.5));
-    c.add(this.make.text({ x: 0, y: -20, text: '!', style: { fontFamily: 'monospace', fontSize: '9px', color: '#ffe066', stroke: '#000', strokeThickness: 2, resolution: 3 } }, false).setOrigin(0.5).setName('mark'));
+    c.add(smooth(this.make.text({ x: 0, y: -15, text: n.name, style: textStyle(7, '#ffffff') }, false)).setOrigin(0.5));
+    c.add(smooth(this.make.text({ x: 0, y: -23, text: '!', style: textStyle(10, '#ffe066') }, false)).setOrigin(0.5).setName('mark'));
     this.layer.push(c);
     return c;
   }
@@ -284,9 +301,9 @@ export class GameScene extends Phaser.Scene {
     const x = isMe ? this.myPos.x || p.x : p.x;
     const y = isMe ? this.myPos.y || p.y : p.y;
     const sprite = this.add.sprite(0, 0, 'char', FRAMES[p.dir]).setTint(CLASSES[p.classId].color);
-    const label = this.make
-      .text({ x: 0, y: -14, text: p.name, style: { fontFamily: 'monospace', fontSize: '6px', color: isMe ? '#ffe066' : '#fff', stroke: '#000', strokeThickness: 2, resolution: 3 } }, false)
-      .setOrigin(0.5);
+    const label = smooth(
+      this.make.text({ x: 0, y: -15, text: p.name, style: textStyle(7, isMe ? '#ffe066' : '#ffffff') }, false),
+    ).setOrigin(0.5);
     const bar = this.add.graphics();
     const box = this.add.container(x, y, [sprite, label, bar]).setDepth(y);
     this.layer.push(box);
@@ -310,8 +327,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private float(x: number, y: number, text: string, color: string) {
-    const t = this.make
-      .text({ x, y, text, style: { fontFamily: 'monospace', fontSize: '9px', color, stroke: '#000', strokeThickness: 2, resolution: 3 } }, true)
+    const t = smooth(this.make.text({ x, y, text, style: textStyle(10, color) }, true))
       .setOrigin(0.5)
       .setDepth(9000);
     this.tweens.add({ targets: t, y: y - 22, alpha: 0, duration: 800, onComplete: () => t.destroy() });

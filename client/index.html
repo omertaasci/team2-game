@@ -9,7 +9,7 @@
     <style>
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; background: #0b1426; color: #eaf4ff; overflow: hidden;
-        font-family: 'Press Start 2P', ui-monospace, Consolas, monospace; font-size: 11px; line-height: 1.6; }
+        font-family: 'Trebuchet MS', 'Segoe UI', Verdana, Arial, sans-serif; font-size: 15px; line-height: 1.5; }
       #game { position: fixed; inset: 0; }
       #game canvas { image-rendering: pixelated; }
       .hidden { display: none !important; }
@@ -18,20 +18,20 @@
       button:hover:not(:disabled) { background: #fff3b0; }
       button:disabled { opacity: .45; cursor: not-allowed; }
       input { font: inherit; color: #eaf4ff; background: #0b1426; border: 3px solid #7fc8ff; padding: 8px; width: 100%; }
-      h1 { font-size: 22px; margin: 0 0 6px; color: #fff; text-shadow: 3px 3px 0 #d63a3a; }
-      h2 { font-size: 12px; margin: 0 0 8px; color: #ffe066; }
+      h1 { font-family: 'Press Start 2P', 'Trebuchet MS', sans-serif; font-size: 22px; margin: 0 0 6px; color: #fff; text-shadow: 3px 3px 0 #d63a3a; }
+      h2 { font-size: 17px; margin: 0 0 8px; color: #ffe066; }
       .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
         background: radial-gradient(ellipse at top, #1d3a6b 0%, #0b1426 70%); z-index: 10; }
       .screen .panel { width: min(560px, 94vw); }
       .snow { position: fixed; inset: 0; pointer-events: none; z-index: 11; }
       .row { display: flex; gap: 8px; margin: 8px 0; align-items: center; }
-      .muted { color: #9db8d8; font-size: 9px; }
-      .err { color: #ff8a8a; min-height: 14px; font-size: 9px; }
+      .muted { color: #a9c4e4; font-size: 13px; }
+      .err { color: #ff8a8a; min-height: 18px; font-size: 13px; }
       .classes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
-      .cls { background: #12264a; color: #eaf4ff; border: 3px solid #35588f; text-align: left; font-size: 9px; }
+      .cls { background: #12264a; color: #eaf4ff; border: 3px solid #35588f; text-align: left; font-size: 13px; }
       .cls.sel { border-color: #ffe066; background: #1c3a6e; }
-      .cls b { display: block; font-size: 11px; margin-bottom: 4px; }
-      .plist { list-style: none; padding: 0; margin: 6px 0; font-size: 10px; }
+      .cls b { display: block; font-size: 16px; margin-bottom: 4px; }
+      .plist { list-style: none; padding: 0; margin: 6px 0; font-size: 15px; }
       .plist li { padding: 3px 0; display: flex; justify-content: space-between; }
       .dot { display: inline-block; width: 10px; height: 10px; margin-right: 6px; }
       #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
@@ -41,25 +41,27 @@
       .bar > i { display: block; height: 100%; background: #e84a5f; transition: width .15s; }
       #bossbar { left: 50%; top: 10px; transform: translateX(-50%); width: min(420px, 50vw); text-align: center; }
       #bossbar .bar > i { background: #5ec8ff; }
-      #side { right: 10px; top: 10px; width: 260px; font-size: 9px; }
+      #side { right: 10px; top: 10px; width: 280px; font-size: 14px; }
       #side ul { list-style: none; margin: 0 0 10px; padding: 0; }
       #side li { padding: 2px 0; }
       #chat { left: 10px; bottom: 10px; width: min(420px, 46vw); pointer-events: auto; }
-      #chatlog { max-height: 120px; overflow: hidden; font-size: 9px; text-shadow: 1px 1px 0 #000; margin-bottom: 4px; }
-      #chat input { padding: 5px; font-size: 9px; }
-      #help { right: 10px; bottom: 10px; font-size: 8px; text-align: right; }
-      #dialogue { left: 50%; bottom: 40px; transform: translateX(-50%); width: min(640px, 92vw); pointer-events: auto; cursor: pointer; }
-      #dialogue .who { color: #ffe066; margin-bottom: 6px; }
+      #chatlog { max-height: 150px; overflow: hidden; font-size: 14px; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; margin-bottom: 4px; }
+      #chat input { padding: 7px; font-size: 14px; }
+      #help { right: 10px; bottom: 10px; font-size: 12px; text-align: right; }
+      #dialogue { position: fixed; left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%); width: min(560px, 90vw); padding: 18px 20px;
+        font-size: 18px; line-height: 1.6; z-index: 20; pointer-events: auto; cursor: pointer;
+        box-shadow: 0 0 0 100vmax rgba(5, 10, 24, .55); }
+      #dialogue .who { color: #ffe066; margin-bottom: 10px; font-size: 20px; }
       #toasts { left: 50%; top: 70px; transform: translateX(-50%); text-align: center; }
-      .toast { background: rgba(10, 22, 44, .92); border: 3px solid #ffe066; padding: 8px 12px; margin-bottom: 6px; font-size: 10px; }
+      .toast { background: rgba(10, 22, 44, .92); border: 3px solid #ffe066; padding: 8px 12px; margin-bottom: 6px; font-size: 15px; }
       .toast.bad { border-color: #ff8a8a; }
       #downed { inset: 0; background: rgba(120, 0, 0, .35); display: flex; align-items: center; justify-content: center; font-size: 16px; text-align: center; }
       @media (max-width: 760px) {
         #side, #help { display: none; }
-        #me { width: 190px; font-size: 8px; }
+        #me { width: 220px; font-size: 13px; }
         #bossbar { top: 60px; width: 80vw; }
         #chat { width: 70vw; }
-        .toast { font-size: 8px; }
+        .toast { font-size: 13px; }
       }
     </style>
   </head>
