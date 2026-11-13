@@ -114,17 +114,6 @@ team2-game/
 - [ ] Return presents and finish the game
 - [ ] In-game chat *(optional)*
 
-## 🎨 Assets
-
-- 2D Pixel Dungeon Asset Pack v2.0
-- Christmas Village Asset Pack
-- Enemy Animations Set
-
-Please check each pack's license before publishing the game.
-
-## 👥 Team
-
-**Team 2**
 
 <div align="center">
 
