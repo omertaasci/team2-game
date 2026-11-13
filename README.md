@@ -82,8 +82,6 @@ Your team arrives in a snowy village and meets five NPCs who each lost something
 
 ## 🚀 Getting Started
 
-> The project is still in planning. These commands will apply once the code is scaffolded.
-
 ```bash
 git clone https://github.com/omertaasci/team2-game.git
 cd team2-game
@@ -91,32 +89,40 @@ npm install
 npm run dev
 ```
 
-Then open the printed local URL in several browser tabs to play together.
+Open http://localhost:5173 in several browser tabs to play together. By default everything runs in one process with an in-memory broker.
 
-## 🗂️ Planned Structure
+To use the shared Redpanda broker, copy `.env.example` to `.env` and set `BROKER=http`, `BROKER_PASSWORD` (ask the team, never commit it) and your own `TOPIC_NS`.
+
+**Controls:** `WASD` move · `E` talk / pick up · `Space` attack · `F` heal · `Enter` chat
+
+**Tests:** `npm test` (full game flow) and `npm run smoke:http` (shared broker).
+
+## 🗂️ Structure
 
 ```
 team2-game/
-├── assets/      # Sprites, tilesets and UI art
+├── broker/      # In-memory and Redpanda REST proxy clients
 ├── client/      # Phaser 3 game
-├── gateway/     # WebSocket <-> event broker
-├── services/    # Event consumers (lobby, quest, combat, leaderboard, ...)
+├── gateway/     # Socket.IO <-> event broker
+├── services/    # Event consumers (lobby, world, quest, combat, chat, leaderboard, achievements, replay)
 ├── shared/      # Command and event types shared by all parts
+├── tests/       # End-to-end and broker smoke tests
 ├── concept.md        # Game concept
-├── game_events.md    # Event list (producers, consumers, payloads)
+├── game_events.md    # Commands, events, topics
 └── tech_design.md    # Technical design
 ```
 
 ## 🧭 Roadmap
 
-- [ ] Project setup (Vite, TypeScript, Node server)
-- [ ] Multiplayer movement in the snowy town
-- [ ] NPC dialogue and quest tracking
-- [ ] Ice Cave scene
-- [ ] Ice King boss fight (shared health, server-authoritative)
-- [ ] Class abilities
-- [ ] Return presents and finish the game
-- [ ] In-game chat *(optional)*
+- [x] Project setup (Vite, TypeScript, Node server)
+- [x] Multiplayer in the snowy town
+- [x] NPC dialogue and quest tracking
+- [x] Ice Cave scene
+- [x] Ice King boss fight (shared health, server-authoritative)
+- [x] Class abilities
+- [x] Return presents and finish the game
+- [x] In-game chat
+- [ ] Polish, sound and playtesting
 
 ## 🎨 Assets
 
