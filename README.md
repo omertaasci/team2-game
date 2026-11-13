@@ -143,7 +143,6 @@ team2-game/
 - [x] Class abilities
 - [x] Return presents and finish the game
 - [x] In-game chat
-- [ ] Polish, sound and playtesting
 
 ## 🎨 Assets
 
