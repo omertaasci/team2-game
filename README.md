@@ -12,7 +12,7 @@
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
 ![Players](https://img.shields.io/badge/Players-2--6-red?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Planning-orange?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Playable-brightgreen?style=for-the-badge)
 
 ❄️ ❄️ ❄️ ❄️ ❄️ ❄️ ❄️ ❄️ ❄️ ❄️ ❄️ ❄️
 
