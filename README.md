@@ -116,6 +116,29 @@ team2-game/
 - [ ] Return presents and finish the game
 - [ ] In-game chat *(optional)*
 
+## 🎨 Assets
+
+- 2D Pixel Dungeon Asset Pack v2.0
+- Christmas Village Asset Pack
+- Enemy Animations Set
+
+Please check each pack's license before publishing the game.
+
+## 📚 Documentation
+
+- [Concept](concept.md)
+- [Game events](game_events.md)
+- [Technical design](tech_design.md)
+
+## 👥 Team
+
+**Team 2**
+
+| Member | GitHub |
+|---|---|
+| Ömer | [@omertaasci](https://github.com/omertaasci) |
+| Manvi | [@manvibhatt1137-glitch](https://github.com/manvibhatt1137-glitch) |
+| _add the remaining members_ | |
 
 <div align="center">
 
